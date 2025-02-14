@@ -53,8 +53,8 @@ services:
       - "80:80"
       - "433:433"
     volumes:
-      - /etc/letsencrypt/live/13.125.197.177.sslip.io/fullchain.pem:/etc/letsencrypt/live/13.125.197.177/fullchain.pem:ro
-      - /etc/letsencrypt/live/13.125.197.177.sslip.io/privkey.pem:/etc/letsencrypt/live/13.125.197.177/privkey.pem:ro
+      - /etc/letsencrypt/live/13.125.197.177.sslip.io/fullchain.pem:/etc/letsencrypt/live/13.125.197.177.sslip.io/fullchain.pem:ro
+      - /etc/letsencrypt/live/13.125.197.177.sslip.io/privkey.pem:/etc/letsencrypt/live/13.125.197.177.sslip.io/privkey.pem:ro
     networks:
       - api-network
     depends_on:
