@@ -13,6 +13,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Caching Docker Image Layer
+        uses: actions/cache@v4.2.0
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-image-layer-cache-${{ github.sha }}
+          restore-keys: docker-image-layer-cache
+      
+      - name: run ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add Host Key to Known Hosts
+        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
       - name: Create .env file
         run: |
           echo "DATABASE_HOST=${{ secrets.DATABASE_HOST }}" >> .env
@@ -22,15 +37,22 @@ jobs:
           echo "DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}" >> .env
           echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> .env
           echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" >> .env
+      
+      # Docker Buildx 설정
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Add Remote Server Fingerprint to Known Hosts
-        run: ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts || true
+      - name: Create BuildKit Builder
+        run: |
+          docker buildx create --use --name buildkit
+          docker buildx use buildkit
+
+      - name: Docker Image Build
+        run: |
+            docker compose -f docker-compose-actions.yml build --build-arg BUILDKIT_INLINE_CACHE=1
 
       - name: Login DockerHub
         run: echo '${{ secrets.DOCKER_PASSWORD}}' | docker login -u '${{ secrets.DOCKER_USERNAME }}' --password-stdin
-
-      - name: Docker Image Build
-        run: docker compose -f docker-compose.yml build
 
       - name: Docker Image Push
         run: docker compose -f docker-compose.yml push
@@ -43,7 +65,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           source: "docker-compose.yml,.env"
-          target: "~/github-actions-work-directory"
+          target: "~/work-directory"
 
       - name: Pull Image & Up Container
         uses: appleboy/ssh-action@v1.0.3
@@ -53,7 +75,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd ~/github-actions-work-directory
+            cd ~/work-directory
             docker compose -f docker-compose.yml pull
             docker compose -f docker-compose.yml down
             docker compose -f docker-compose.yml up -d
